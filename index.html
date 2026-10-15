@@ -1,1 +1,229 @@
 
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>مغامرة الجواهر</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700&family=Lalezar&display=swap">
+<style>
+/* Layout: full-bleed 3D canvas, HUD on top, joystick lower-left, jump lower-right. Night-sky adventure look, single theme by design. */
+:root{
+  --bg:#0f1b2d;
+  --ink:#f6f0e1;
+  --gold:#ffc83d;
+  --lava:#ff5a3c;
+  --mint:#5fe3b1;
+  --panel:rgba(9,16,30,.72);
+  --line:rgba(246,240,225,.18);
+  --display:'Lalezar','Cairo',system-ui,sans-serif;
+  --body:'Cairo',system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--ink);font-family:var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:10px;
+  overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;background:var(--bg)}
+#app{position:relative;height:100%}
+.hud{position:absolute;top:0;left:0;right:0;display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;pointer-events:none}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:2px 12px;font-family:var(--display);font-size:20px;line-height:1.5;display:flex;gap:8px;align-items:baseline;font-variant-numeric:tabular-nums}
+.chip small{font-family:var(--body);font-size:12px;opacity:.7}
+.chip.gem b{color:var(--gold);font-weight:400}
+.chip.life b{color:var(--lava);font-weight:400;letter-spacing:2px}
+.chip.time b{color:var(--mint);font-weight:400}
+.chip.time.low b{color:var(--lava)}
+#zone{position:absolute;left:0;bottom:0;width:58%;height:46%}
+#base{position:absolute;width:112px;height:112px;border-radius:50%;border:2px solid var(--line);background:rgba(246,240,225,.06);pointer-events:none;transition:opacity .2s}
+#knob{position:absolute;left:30px;top:30px;width:52px;height:52px;border-radius:50%;background:rgba(246,240,225,.55);border:2px solid rgba(255,255,255,.7)}
+#jump{position:absolute;right:6px;bottom:30px;width:92px;height:92px;border-radius:50%;border:2px solid rgba(255,200,61,.8);background:rgba(255,200,61,.22);color:var(--ink);font-family:var(--display);font-size:24px;display:grid;place-items:center;cursor:pointer}
+#jump:active,#jump.on{background:rgba(255,200,61,.5)}
+.screen{position:absolute;inset:0;display:grid;place-items:center;background:rgba(8,14,26,.78);z-index:5}
+.screen[hidden]{display:none}
+.card{width:min(420px,100%);text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center;padding:8px}
+.card h1{font-family:var(--display);font-weight:400;font-size:clamp(40px,12vw,64px);line-height:1.1;margin:0;color:var(--gold);text-wrap:balance}
+.card p{margin:0;font-size:16px;line-height:1.7;max-width:34ch;text-wrap:balance}
+.card .hint{font-size:14px;opacity:.75}
+.card .best{font-family:var(--display);font-size:20px;color:var(--mint)}
+.card button{font-family:var(--display);font-size:26px;color:#1a1305;background:var(--gold);border:0;border-radius:14px;padding:6px 34px;cursor:pointer}
+.card button:focus-visible,#jump:focus-visible{outline:3px solid var(--mint);outline-offset:3px}
+#toast{position:absolute;left:0;right:0;top:22%;text-align:center;pointer-events:none;opacity:0;transform:translateY(8px);transition:opacity .3s,transform .3s}
+#toast.show{opacity:1;transform:none}
+#toast b{display:block;font-family:var(--display);font-weight:400;font-size:clamp(38px,11vw,60px);color:var(--ink);text-shadow:0 3px 0 rgba(0,0,0,.35)}
+#toast span{display:inline-block;margin-top:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:2px 14px;font-size:15px}
+#flash{position:fixed;inset:0;background:var(--lava);opacity:0;pointer-events:none;transition:opacity .35s}
+#flash.on{opacity:.38;transition:none}
+@media (prefers-reduced-motion:reduce){#toast,#flash{transition:none}}
+</style>
+
+<canvas id="c"></canvas>
+<div id="flash"></div>
+<div id="app" dir="rtl" lang="ar">
+  <div class="hud">
+    <div class="chip"><small>المرحلة</small><b id="hLevel">1</b></div>
+    <div class="chip gem"><small>الجواهر</small><b id="hGems">0/4</b></div>
+    <div class="chip life"><b id="hLives">♥♥♥</b></div>
+    <div class="chip time" id="hTimeChip" hidden><small>الوقت</small><b id="hTime">0</b></div>
+  </div>
+  <div id="toast"><b id="tTitle"></b><span id="tSub"></span></div>
+  <div id="zone"><div id="base"><div id="knob"></div></div></div>
+  <button id="jump" type="button" aria-label="قفز">قفز</button>
+
+  <div id="screen" class="screen">
+    <div class="card">
+      <h1 id="sTitle">مغامرة الجواهر</h1>
+      <p id="sText">اجمع كل الجواهر ثم ادخل البوابة الخضراء. تجنّب الوحوش الحمراء واقفز فوق العوائق. كل مرحلة أصعب من التي قبلها.</p>
+      <p class="hint" id="sHint">العصا على اليسار للحركة، وزر قفز على اليمين.</p>
+      <div class="best" id="sBest"></div>
+      <button id="sBtn" type="button">ابدأ المغامرة</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var canvas=$('c');
+if(typeof THREE==='undefined'){ $('sText').textContent='تعذر تحميل محرك اللعبة. تحقق من الاتصال وأعد المحاولة.'; $('sBtn').hidden=true; return; }
+var renderer;
+try{ renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true}); }
+catch(e){ $('sText').textContent='جهازك لا يدعم الرسوم ثلاثية الأبعاد في هذا المتصفح.'; $('sBtn').hidden=true; return; }
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+
+var H=18;
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(0x16294a);
+scene.fog=new THREE.Fog(0x16294a,28,70);
+var camera=new THREE.PerspectiveCamera(58,1,0.1,150);
+scene.add(new THREE.HemisphereLight(0xd6ecff,0x2a3b2f,0.95));
+var sun=new THREE.DirectionalLight(0xfff2d0,0.85); sun.position.set(8,20,6); scene.add(sun);
+
+/* ---------- shared geometry / materials ---------- */
+function mat(c,o){ o=o||{}; o.color=c; return new THREE.MeshLambertMaterial(o); }
+var G={
+  gem:new THREE.OctahedronGeometry(0.5,0),
+  enemy:new THREE.IcosahedronGeometry(0.65,0),
+  eye:new THREE.SphereGeometry(0.15,8,8),
+  pupil:new THREE.SphereGeometry(0.07,6,6),
+  bar:new THREE.BoxGeometry(7,0.6,0.6),
+  post:new THREE.CylinderGeometry(0.5,0.6,0.9,12),
+  lava:new THREE.CircleGeometry(2,28),
+  ring:new THREE.TorusGeometry(1.3,0.18,10,32),
+  disc:new THREE.CircleGeometry(1.2,28),
+  beam:new THREE.CylinderGeometry(1.1,1.1,9,20,1,true)
+};
+var M={
+  gem:new THREE.MeshLambertMaterial({color:0xffc83d,emissive:0x8a5a00,flatShading:true}),
+  enemy:new THREE.MeshLambertMaterial({color:0xe63946,flatShading:true}),
+  eye:mat(0xffffff), pupil:mat(0x111111),
+  bar:mat(0xf4a261), post:mat(0x6d4c41),
+  lava:new THREE.MeshBasicMaterial({color:0xff4a1f}),
+  lavaRim:new THREE.MeshBasicMaterial({color:0xffb347}),
+  ringOff:mat(0x7a8599), ringOn:new THREE.MeshBasicMaterial({color:0x5fe3b1}),
+  discOff:new THREE.MeshBasicMaterial({color:0x3a4558,transparent:true,opacity:.7,side:THREE.DoubleSide}),
+  discOn:new THREE.MeshBasicMaterial({color:0x5fe3b1,transparent:true,opacity:.55,side:THREE.DoubleSide}),
+  beam:new THREE.MeshBasicMaterial({color:0x5fe3b1,transparent:true,opacity:.22,side:THREE.DoubleSide,depthWrite:false}),
+  shadow:new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.35,depthWrite:false})
+};
+
+/* ---------- world ---------- */
+(function buildWorld(){
+  var c=document.createElement('canvas'); c.width=c.height=128;
+  var g=c.getContext('2d');
+  g.fillStyle='#2f6f55'; g.fillRect(0,0,128,128);
+  g.fillStyle='#39825f'; g.fillRect(0,0,64,64); g.fillRect(64,64,64,64);
+  var t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(9,9);
+  var floor=new THREE.Mesh(new THREE.PlaneGeometry(H*2,H*2),new THREE.MeshLambertMaterial({map:t}));
+  floor.rotation.x=-Math.PI/2; scene.add(floor);
+  var ground=new THREE.Mesh(new THREE.PlaneGeometry(400,400),mat(0x12233f));
+  ground.rotation.x=-Math.PI/2; ground.position.y=-0.6; scene.add(ground);
+  var rimM=mat(0xb08968), L=H*2+1.2;
+  [[0,-H-0.3,L,0.6],[0,H+0.3,L,0.6],[-H-0.3,0,0.6,L],[H+0.3,0,0.6,L]].forEach(function(r){
+    var m=new THREE.Mesh(new THREE.BoxGeometry(r[2],0.7,r[3]),rimM); m.position.set(r[0],0.25,r[1]); scene.add(m);
+  });
+  var trunk=new THREE.CylinderGeometry(0.25,0.35,1.6,8), crown=new THREE.ConeGeometry(1.4,3.2,8);
+  var tm=mat(0x6d4c41), cm=[mat(0x2a9d8f),mat(0x3d8f4f),mat(0x52a368)];
+  for(var i=0;i<34;i++){
+    var a=Math.random()*Math.PI*2, d=H+4+Math.random()*16;
+    var tr=new THREE.Group();
+    var tk=new THREE.Mesh(trunk,tm); tk.position.y=0.2; tr.add(tk);
+    var cr=new THREE.Mesh(crown,cm[i%3]); cr.position.y=2.6; tr.add(cr);
+    var s=0.8+Math.random()*0.9; tr.scale.set(s,s,s);
+    tr.position.set(Math.cos(a)*d,-0.6+0.8*s,Math.sin(a)*d); scene.add(tr);
+  }
+})();
+
+/* ---------- player ---------- */
+var player=new THREE.Group(); scene.add(player);
+var pBody=new THREE.Group(); player.add(pBody);
+(function(){
+  var b=new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.44,0.8,12),mat(0x4cc9f0)); b.position.y=0.5; pBody.add(b);
+  var h=new THREE.Mesh(new THREE.SphereGeometry(0.34,14,12),mat(0xffd6a5)); h.position.y=1.15; pBody.add(h);
+  var cap=new THREE.Mesh(new THREE.SphereGeometry(0.37,14,8,0,Math.PI*2,0,Math.PI/2),mat(0xf77f00)); cap.position.y=1.2; pBody.add(cap);
+  var brim=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.05,0.3),mat(0xf77f00)); brim.position.set(0,1.2,0.34); pBody.add(brim);
+  var em=mat(0x111111), eg=new THREE.SphereGeometry(0.05,6,6);
+  [-0.12,0.12].forEach(function(x){ var e=new THREE.Mesh(eg,em); e.position.set(x,1.12,0.31); pBody.add(e); });
+  var bp=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.55,0.25),mat(0x9b5de5)); bp.position.set(0,0.55,-0.4); pBody.add(bp);
+})();
+var shadow=new THREE.Mesh(new THREE.CircleGeometry(0.55,16),M.shadow);
+shadow.rotation.x=-Math.PI/2; shadow.position.y=0.03; scene.add(shadow);
+
+/* ---------- state ---------- */
+var S={mode:'menu',level:1,lives:3,score:0,gemsLeft:0,gemsNeed:0,time:0,limited:false,
+       vy:0,onGround:true,inv:0,grace:0,jumpBuf:0,best:0,t:0};
+try{ S.best=parseInt(localStorage.getItem('gemQuestBest')||'0',10)||0; }catch(e){}
+var objs={gems:[],enemies:[],bars:[],lavas:[],portal:null,group:null};
+var SPAWN={x:0,z:14}, PORTAL={x:0,z:-14};
+
+function cfg(n){
+  var gems=Math.min(3+n,14);
+  return {
+    gems:gems,
+    enemies:Math.min(Math.floor(1+n*0.8),9),
+    eSpeed:Math.min(1.7+n*0.28,5.4),
+    bars:n>=3?Math.min(n-2,6):0,
+    barSpd:Math.min(0.9+n*0.12,2.4),
+    lava:n>=5?Math.min(n-4,6):0,
+    time:n>=4?Math.round(Math.max(30,80-n*3)+gems*3):0
+  };
+}
+
+function clearLevel(){
+  if(objs.group){ scene.remove(objs.group); }
+  objs.group=new THREE.Group(); scene.add(objs.group);
+  objs.gems=[]; objs.enemies=[]; objs.bars=[]; objs.lavas=[]; objs.portal=null;
+}
+
+function spot(list,r,lim){
+  var best=null;
+  for(var i=0;i<80;i++){
+    var x=(Math.random()*2-1)*lim, z=(Math.random()*2-1)*lim, ok=true;
+    for(var k=0;k<list.length;k++){
+      var o=list[k], dx=x-o.x, dz=z-o.z;
+      if(dx*dx+dz*dz<(o.r+r)*(o.r+r)){ ok=false; break; }
+    }
+    best={x:x,z:z};
+    if(ok) return best;
+  }
+  return best;
+}
+
+function startLevel(n){
+  S.level=n;
+  var c=cfg(n); clearLevel();
+  var occ=[{x:SPAWN.x,z:SPAWN.z,r:6},{x:PORTAL.x,z:PORTAL.z,r:4}];
+
+  for(var i=0;i<c.lava;i++){
+    var p=spot(occ,2.6,H-3.5); occ.push({x:p.x,z:p.z,r:2.2});
+    var l=new THREE.Group();
+    var rim=new THREE.Mesh(new THREE.CircleGeometry(2.25,28),M.lavaRim); rim.rotation.x=-Math.PI/2; rim.position.y=0.02; l.add(rim);
+    var d=new THREE.Mesh(G.lava,M.lava); d.rotation.x=-Math.PI/2; d.position.y=0.04; l.add(d);
+    l.position.set(p.x,0,p.z); objs.group.add(l); objs.lavas.push({x:p.x,z:p.z,r:2.0});
+  }
+  var barOcc=occ.slice();
+  for(var
+  
